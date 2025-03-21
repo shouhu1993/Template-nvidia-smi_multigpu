@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<zabbix_export>
+    <version>5.0</version>
+    <date>2025-03-20T06:11:56Z</date>
+    <groups>
+        <group>
+            <name>Templates/Server hardware</name>
+        </group>
+    </groups>
+    <templates>
+        <template>
+            <template>Template nvidia-smi_multigpu</template>
+            <name>Template nvidia-smi_multigpu</name>
+            <groups>
+                <group>
+                    <name>Templates/Server hardware</name>
+                </group>
+            </groups>
+            <applications>
+                <application>
+                    <name>GPU raw</name>
+                </application>
+            </applications>
+            <items>
+                <item>
+                    <name>GPU Count</name>
+                    <type>DEPENDENT</type>
+                    <key>gpu.count</key>
+                    <delay>0</delay>
+                    <history>7d</history>
+                    <trends>90d</trends>
+                    <description>Number of GPUs detected</description>
+                    <applications>
+                        <application>
+                            <name>GPU raw</name>
+                        </application>
+                    </applications>
+                    <preprocessing>
+                        <step>
+                            <type>JSONPATH</type>
+                            <params>$[0].count</params>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>gpu.info</key>
+                    </master_item>
+                </item>
+                <item>
+                    <name>GPU Driver Version</name>
+                    <type>DEPENDENT</type>
+                    <key>gpu.driver_version</key>
+                    <delay>0</delay>
+                    <history>7d</history>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                    <description>GPU driver version</description>
+                    <applications>
+                        <application>
+                            <name>GPU raw</name>
+                        </application>
+                    </applications>
+                    <preprocessing>
+                        <step>
+                            <type>JSONPATH</type>
+                            <params>$[0].driver_version</params>
+                            <error_handler>DISCARD_VALUE</error_handler>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>gpu.info</key>
+                    </master_item>
+                </item>
+                <item>
+                    <name>GPU info</name>
+                    <key>gpu.info</key>
+                    <delay>1s</delay>
+                    <history>1d</history>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                    <applications>
+                        <application>
+                            <name>GPU raw</name>
+                        </application>
+                    </applications>
+                    <preprocessing>
+                        <step>
+                            <type>CSV_TO_JSON</type>
+                            <params>
+
+1</params>
+                        </step>
+                        <step>
+                            <type>STR_REPLACE</type>
+                            <params>pci.bus_id
+pci_bus_id</params>
+                        </step>
+                        <step>
+                            <type>STR_REPLACE</type>
+                            <params>temperature.gpu
+temperature_gpu</params>
+                        </step>
+                        <step>
+                            <type>STR_REPLACE</type>
+                            <params>memory.total [MiB]
+memory_total</params>
+                        </step>
+                        <step>
+                            <type>STR_REPLACE</type>
+                            <params>memory.used [MiB]
+memory_used</params>
+                        </step>
+                        <step>
+                            <type>STR_REPLACE</type>
+                            <params>fan.speed [%]
+fan_speed</params>
+                        </step>
+                        <step>
+                            <type>STR_REPLACE</type>
+                            <params>utilization.gpu [%]
+gpu_utilization</params>
+                        </step>
+                        <step>
+                            <type>STR_REPLACE</type>
+                            <params>power.draw [W]
+power_draw</params>
+                        </step>
+                    </preprocessing>
+                </item>
+            </items>
+            <discovery_rules>
+                <discovery_rule>
+                    <name>GPU Card</name>
+                    <type>DEPENDENT</type>
+                    <key>gpu.id</key>
+                    <delay>0</delay>
+                    <item_prototypes>
+                        <item_prototype>
+                            <name>GPU {#GPUID} Fan Speed - {#NAME}</name>
+                            <type>DEPENDENT</type>
+                            <key>gpu.fan.[{#GPUID}]</key>
+                            <delay>0</delay>
+                            <history>30d</history>
+                            <trends>90d</trends>
+                            <value_type>FLOAT</value_type>
+                            <units>%</units>
+                            <application_prototypes>
+                                <application_prototype>
+                                    <name>GPU {#GPUID}</name>
+                                </application_prototype>
+                            </application_prototypes>
+                            <preprocessing>
+                                <step>
+                                    <type>JSONPATH</type>
+                                    <params>$[?(@.pci_bus_id==&quot;{#GPUID}&quot;)].fan_speed.first()</params>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>gpu.info</key>
+                            </master_item>
+                        </item_prototype>
+                        <item_prototype>
+                            <name>GPU {#GPUID} memory utilization</name>
+                            <type>CALCULATED</type>
+                            <key>gpu.memory.utilization[{#GPUID}]</key>
+                            <delay>1s</delay>
+                            <history>30d</history>
+                            <trends>180d</trends>
+                            <value_type>FLOAT</value_type>
+                            <units>%</units>
+                            <params>last(&quot;gpu.mused.[{#GPUID}]&quot;)/last(&quot;gpu.mtotal.[{#GPUID}]&quot;)*100</params>
+                            <application_prototypes>
+                                <application_prototype>
+                                    <name>GPU {#GPUID}</name>
+                                </application_prototype>
+                            </application_prototypes>
+                            <trigger_prototypes>
+                                <trigger_prototype>
+                                    <expression>{min(5m)}&gt;{$MEM_WARN}</expression>
+                                    <name>GPU {#GPUID} memory warn (used &gt; {$MEM_WARN}% 5m)</name>
+                                    <priority>WARNING</priority>
+                                </trigger_prototype>
+                            </trigger_prototypes>
+                        </item_prototype>
+                        <item_prototype>
+                            <name>GPU {#GPUID} Memory Total - {#NAME}</name>
+                            <type>DEPENDENT</type>
+                            <key>gpu.mtotal.[{#GPUID}]</key>
+                            <delay>0</delay>
+                            <trends>180d</trends>
+                            <units>B</units>
+                            <description>GPU memory capacity</description>
+                            <application_prototypes>
+                                <application_prototype>
+                                    <name>GPU {#GPUID}</name>
+                                </application_prototype>
+                            </application_prototypes>
+                            <preprocessing>
+                                <step>
+                                    <type>JSONPATH</type>
+                                    <params>$[?(@.pci_bus_id==&quot;{#GPUID}&quot;)].memory_total.first()</params>
+                                </step>
+                                <step>
+                                    <type>MULTIPLIER</type>
+                                    <params>1048576</params>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>gpu.info</key>
+                            </master_item>
+                        </item_prototype>
+                        <item_prototype>
+                            <name>GPU {#GPUID} Memory Used - {#NAME}</name>
+                            <type>DEPENDENT</type>
+                            <key>gpu.mused.[{#GPUID}]</key>
+                            <delay>0</delay>
+                            <trends>180d</trends>
+                            <units>B</units>
+                            <description>The amount of GPU memory used</description>
+                            <application_prototypes>
+                                <application_prototype>
+                                    <name>GPU {#GPUID}</name>
+                                </application_prototype>
+                            </application_prototypes>
+                            <preprocessing>
+                                <step>
+                                    <type>JSONPATH</type>
+                                    <params>$[?(@.pci_bus_id==&quot;{#GPUID}&quot;)].memory_used.first()</params>
+                                </step>
+                                <step>
+                                    <type>MULTIPLIER</type>
+                                    <params>1048576</params>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>gpu.info</key>
+                            </master_item>
+                        </item_prototype>
+                        <item_prototype>
+                            <name>GPU {#GPUID} Power - {#NAME}</name>
+                            <type>DEPENDENT</type>
+                            <key>gpu.power.[{#GPUID}]</key>
+                            <delay>0</delay>
+                            <history>30d</history>
+                            <trends>90d</trends>
+                            <value_type>FLOAT</value_type>
+                            <units>W</units>
+                            <description>Power consumption of the GPU</description>
+                            <application_prototypes>
+                                <application_prototype>
+                                    <name>GPU {#GPUID}</name>
+                                </application_prototype>
+                            </application_prototypes>
+                            <preprocessing>
+                                <step>
+                                    <type>JSONPATH</type>
+                                    <params>$[?(@.pci_bus_id==&quot;{#GPUID}&quot;)].power_draw.first()</params>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>gpu.info</key>
+                            </master_item>
+                        </item_prototype>
+                        <item_prototype>
+                            <name>GPU {#GPUID} Temperature - {#NAME}</name>
+                            <type>DEPENDENT</type>
+                            <key>gpu.temperature.[{#GPUID}]</key>
+                            <delay>0</delay>
+                            <history>30d</history>
+                            <trends>90d</trends>
+                            <units>°C</units>
+                            <description>GPU Temperature</description>
+                            <application_prototypes>
+                                <application_prototype>
+                                    <name>GPU {#GPUID}</name>
+                                </application_prototype>
+                            </application_prototypes>
+                            <preprocessing>
+                                <step>
+                                    <type>JSONPATH</type>
+                                    <params>$[?(@.pci_bus_id==&quot;{#GPUID}&quot;)].temperature_gpu.first()</params>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>gpu.info</key>
+                            </master_item>
+                            <trigger_prototypes>
+                                <trigger_prototype>
+                                    <expression>{min(5m)}&gt;{$TEMP_WARN}</expression>
+                                    <name>GPU {#GPUID} temperature greater than {$TEMP_WARN}°C</name>
+                                    <priority>AVERAGE</priority>
+                                </trigger_prototype>
+                            </trigger_prototypes>
+                        </item_prototype>
+                        <item_prototype>
+                            <name>GPU {#GPUID} Utilization - {#NAME}</name>
+                            <type>DEPENDENT</type>
+                            <key>gpu.utilization.[{#GPUID}]</key>
+                            <delay>0</delay>
+                            <history>30d</history>
+                            <trends>90d</trends>
+                            <value_type>FLOAT</value_type>
+                            <units>%</units>
+                            <description>GPU utilisation</description>
+                            <application_prototypes>
+                                <application_prototype>
+                                    <name>GPU {#GPUID}</name>
+                                </application_prototype>
+                            </application_prototypes>
+                            <preprocessing>
+                                <step>
+                                    <type>JSONPATH</type>
+                                    <params>$[?(@.pci_bus_id==&quot;{#GPUID}&quot;)].gpu_utilization.first()</params>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>gpu.info</key>
+                            </master_item>
+                        </item_prototype>
+                    </item_prototypes>
+                    <master_item>
+                        <key>gpu.info</key>
+                    </master_item>
+                    <lld_macro_paths>
+                        <lld_macro_path>
+                            <lld_macro>{#GPUID}</lld_macro>
+                            <path>$.['pci_bus_id']</path>
+                        </lld_macro_path>
+                        <lld_macro_path>
+                            <lld_macro>{#NAME}</lld_macro>
+                            <path>$.['name']</path>
+                        </lld_macro_path>
+                    </lld_macro_paths>
+                </discovery_rule>
+            </discovery_rules>
+            <macros>
+                <macro>
+                    <macro>{$MEM_WARN}</macro>
+                    <value>90</value>
+                    <description>Memory used warn</description>
+                </macro>
+                <macro>
+                    <macro>{$TEMP_WARN}</macro>
+                    <value>80</value>
+                    <description>GPU Temperature warn</description>
+                </macro>
+            </macros>
+        </template>
+    </templates>
+</zabbix_export>
